@@ -167,10 +167,12 @@ class CarController(CarControllerBase, SnGCarController):
           can_sends.append(subarucan.create_es_distance(self.packer, self.frame // 5, CS.es_distance_msg, 0, pcm_cancel_cmd,
                                                         self.CP.openpilotLongitudinalControl, cruise_brake > 0, cruise_throttle))
       else:
-        # LKAS_ANGLE: when the driver brakes at a standstill, EyeSight cancels ACC on its own (about 0.2 s
-        # later while it is holding the car). Injecting ES_Distance cancel frames on top of that faulted
-        # EyeSight, and then the EPS, on a 2022 Asia-Pacific Outback, so leave the cancel to EyeSight there.
-        skip_cancel = bool(self.CP.flags & SubaruFlags.LKAS_ANGLE) and CS.out.brakePressed and CS.out.standstill
+        # LKAS_ANGLE: the brake pedal always makes EyeSight cancel ACC on its own (up to about 0.2 s later
+        # while it is holding the car at a stop). Injecting ES_Distance cancel frames on top of that faulted
+        # EyeSight, and then the EPS, on a 2022 Asia-Pacific Outback, so leave the cancel to EyeSight while
+        # the driver brakes. Disengagements openpilot starts on its own (driver monitoring, faults) still
+        # send the cancel, and so does a brake release with ACC still on.
+        skip_cancel = bool(self.CP.flags & SubaruFlags.LKAS_ANGLE) and CS.out.brakePressed
         if pcm_cancel_cmd and not skip_cancel:
           if not (self.CP.flags & SubaruFlags.HYBRID):
             bus = CanBus.alt if self.CP.flags & SubaruFlags.GLOBAL_GEN2 else CanBus.main
